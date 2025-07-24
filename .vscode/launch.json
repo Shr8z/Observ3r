@@ -15,7 +15,7 @@
                 "ETH_ADDRESS": "0xddf093745b0a723c68a8f040ab03e72eee2b8f60",
                 "DENO_DIR": "/tmp/deno/"
             },
-            "runtimeExecutable": "/snap/bin/deno",
+            "runtimeExecutable": "/home/shr8z/.deno/bin/deno",
             "runtimeArgs": [
                 "run",
                 "--unstable",
