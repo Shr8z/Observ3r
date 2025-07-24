@@ -1,0 +1,10 @@
+.vscode/
+.harness/
+.devcontainer/
+.http
+.git
+.env
+*.md
+.gitignore
+Dockerfile
+LICENSE
