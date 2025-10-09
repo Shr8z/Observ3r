@@ -9,13 +9,17 @@ import {
 import { Address } from "viem";
 
 export class MoonwellService {
+  private rpcUrl = Deno.env.get("RPC_URL") || "https://mainnet.base.org";
+  
   private moonwell = createMoonwellClient({
     networks: {
       base: {
-        rpcUrls: ["https://mainnet.base.org"]
+        rpcUrls: [this.rpcUrl]
       }
     }
   });
+
+  public tokens = this.moonwell.environments.base.tokens;
 
   public async getUserPositions(address: Address): Promise<UserPosition[]> {
     try {
