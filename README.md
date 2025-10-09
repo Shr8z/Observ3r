@@ -3,7 +3,7 @@
 ## BUILD
 
 ``` shell
-export version=1.4.0
+export version=1.5.0
 docker build -t localhost:32000/observ3r:$version .
 docker tag localhost:32000/observ3r:$version localhost:32000/observ3r:latest
 docker push localhost:32000/observ3r:$version
