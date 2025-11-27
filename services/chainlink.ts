@@ -1,4 +1,5 @@
 import {
+Address,
   createPublicClient,
   formatEther,
   formatUnits,
@@ -45,6 +46,32 @@ export class ChainlinkService {
       });
     } catch (error) {
       console.error("Error fetching data : ", error);
+    }
+  }
+
+  public async getTokenPrice(tokenAddress: Address): Promise<number> {
+    try {
+      const feed = DataFeeds.find(
+        (feed) => feed.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+      );
+      if (!feed) {
+        throw new Error(`No data feed found for token address: ${tokenAddress}`);
+      }
+
+      const [latestAnswer] = await this.publicClient.multicall({
+        contracts: [
+          {
+            address: getAddress(feed.address),
+            abi: this.chainlinkAbi,
+            functionName: "latestAnswer",
+          },
+        ],
+      });
+
+      const price = Number(formatUnits(BigInt(latestAnswer.result ?? 0n), feed.decimals));
+      return price;
+    } catch (error) {
+      throw new Error("Failed to fetch token price ${tokenAddress}", { cause: error } );
     }
   }
 }
