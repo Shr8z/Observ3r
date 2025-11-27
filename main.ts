@@ -40,14 +40,27 @@ try {
         AERODROME_GAUGE_ADDRESS,
         "0xfbcbe7ad86b277a05fe260f037758cd5985e9c37",
       );
+
+      const res0 = Number(poolData.reserve0 / poolData.dec0);
+      const resPrice0 = await chainlink.getTokenPrice(poolData.token0) * res0;
+      const res1 = poolData.reserve1 / poolData.dec1;
+      const resPrice1 = await chainlink.getTokenPrice(poolData.token1) * Number(res1);
+
       console.log("Aerodrome Pool Gauge Data:");
       console.log(`  Token0: ${poolData.token0}`);
       console.log(`  Token1: ${poolData.token1}`);
-      console.log(`  Reserve0: ${formatUnits(poolData.reserve0, BaseTokens.find(x => x.address == poolData.token0)!.decimals)}`);
-      console.log(`  Reserve1: ${formatUnits(poolData.reserve1, BaseTokens.find(x => x.address == poolData.token1)!.decimals)}`);
+      console.log(`  Reserve0: ${res0} - $${resPrice0}`);
+      console.log(`  Reserve1: ${res1} - $${resPrice1}`);
       console.log(`  Earned Rewards: ${formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)}`);
       console.log(`  Balance Of: ${formatEther(poolData.balanceOf)}`);
-      // (token0/(10^dec0) * price0 + token1/(10^dec1) * price1) * balanceOf
+      console.log(`  TotalSupply: ${formatEther(poolData.totalSupply)}`);
+
+      const poolTVL = resPrice0 + resPrice1;
+      console.log(`  Pool TVL: $${poolTVL}`);
+      const userShare = Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply));
+      console.log(`  User Share: ${ (userShare * 100).toFixed(4) }%`);
+      const marketPrice = userShare * poolTVL; // 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share ! Who is right ? 
+      console.log(`  Market Price: $${marketPrice}`);
       // To fix !!! Not working yet
       console.log(`  Balance $: ${poolData.reserve0}`);
     } catch (error) {
