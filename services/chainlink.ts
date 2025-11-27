@@ -1,13 +1,13 @@
 import {
+  createPublicClient,
   formatEther,
   formatUnits,
   getAddress,
-  parseAbi,
   http,
-  createPublicClient,
+  parseAbi,
 } from "viem";
 import { base } from "viem/chains";
-
+import { DataFeeds } from "../data/DataFeeds.ts";
 
 export class ChainlinkService {
   private rpcUrl = Deno.env.get("RPC_URL") || "https://mainnet.base.org";
@@ -17,19 +17,6 @@ export class ChainlinkService {
     transport: http(this.rpcUrl),
     batch: { multicall: { batchSize: 5, wait: 1000 } },
   });
-
-  private chainlinkDataFeedContracts = [
-    {
-      pair: "ETH/USD",
-      address: "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
-      decimals: 8,
-    },
-    {
-      pair: "BTC/USD",
-      address: "0x64c911996D3c6aC71f9b455B1E8E7266BcbD848F",
-      decimals: 8,
-    },
-  ];
 
   private chainlinkAbi = parseAbi([
     "function latestAnswer() view returns (int256)",
@@ -41,9 +28,9 @@ export class ChainlinkService {
     timeStyle: "medium",
   });
 
-  public async getEthUsdPrice() {
+  public async getPairPrice() {
     try {
-      const contracts = this.chainlinkDataFeedContracts.map((contract) => ({
+      const contracts = DataFeeds.map((contract) => ({
         address: getAddress(contract.address),
         abi: this.chainlinkAbi,
         functionName: "latestAnswer",
@@ -53,11 +40,8 @@ export class ChainlinkService {
         contracts: contracts,
       });
 
-      this.chainlinkDataFeedContracts.map((contract, i) => {
-        console.log(
-          `${this.formatter.format(Date.now())} ${contract.pair} $${formatUnits(BigInt(results[i].result ?? 0n), contract.decimals)
-          }`,
-        );
+      DataFeeds.map((contract, i) => {
+        console.log(`${contract.pair} $${formatUnits(BigInt(results[i].result ?? 0n), contract.decimals)}`);
       });
     } catch (error) {
       console.error("Error fetching data : ", error);
