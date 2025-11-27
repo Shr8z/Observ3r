@@ -1,9 +1,9 @@
 {
   "imports": {
     "@moonwell-fi/moonwell-sdk": "npm:@moonwell-fi/moonwell-sdk@^0.8.9",
-    "cron": "npm:cron@^4.3.3",
+    "cron": "npm:cron@^4.3.4",
     "prom-client": "npm:prom-client@^15.1.3",
-    "viem": "npm:viem@^2.37.12"
+    "viem": "npm:viem@^2.40.3"
   },
   "tasks": {
     "start": "deno run --allow-net --allow-env main.ts",
