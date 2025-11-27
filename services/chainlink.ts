@@ -15,7 +15,7 @@ export class ChainlinkService {
   private publicClient = createPublicClient({
     chain: base,
     transport: http(this.rpcUrl),
-    batch: { multicall: { batchSize: 10, wait: 250 } },
+    batch: { multicall: { batchSize: 5, wait: 1000 } },
   });
 
   private chainlinkDataFeedContracts = [
