@@ -5,7 +5,7 @@ import {
   UserPosition,
   UserReward,
   Market
-} from "@moonwell-fi/moonwell-sdk";
+} from "moonwell-sdk";
 import { Address } from "viem";
 
 export class MoonwellService {
