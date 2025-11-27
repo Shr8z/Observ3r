@@ -3,12 +3,17 @@ import { base } from 'viem/chains';
 
 export class AerodromeService {
 
+  // Aerodrome Pool Gauge ABI (minimal for fetching pool data)
+  private poolGaugeAbi = parseAbi([
+    'function rewardToken() external view returns (address)',
+    'function earned(address _account) external view returns (uint256 _earned)',
+    'function balanceOf(address account) external view returns (uint256)',
+    'function stakingToken() external view returns (address)',
+  ]);
+
   // Aerodrome Pool ABI (minimal for fetching pool data)
   private poolAbi = parseAbi([
-    'function tokens() external view returns (address, address)',
-    "function totalSupply() external view returns (uint256)",
-    "function balanceOf(address account) external view returns (uint256)",
-    'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
+    'function metadata() external view returns (uint256 dec0, uint256 dec1, uint256 r0, uint256 r1, bool st, address t0, address t1)',
   ]);
 
   // private nonfungiblePositionManagerAddress = '0x827922686190790b37229fd06084350E74485b72';
@@ -23,37 +28,62 @@ export class AerodromeService {
   });
 
   // Function to fetch pool data
-  public async getPoolData(poolAddress: Address, address: Address) {
+  /*
+  // vAMM-USDC/AERO Pool Gauge = 0x4f09bab2f0e15e2a078a227fe1537665f55b8360
+  // Call balanceOf() to get staked balance
+  // Call earned() to get pending rewards
+  // Call rewardToken() to get the reward token address
+  // Call stakingToken() to get the pool address
+
+  // vAMM-USDC/AERO Pool = 0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d
+  // Call metadata() to get token0 address, token1 address, reserve0, reserve1
+  // 
+  */
+  public async getPoolGaugeData(poolAddress: Address, address: Address) {
     try {
       const results = await this.publicClient.multicall({
         contracts: [
-          { address: poolAddress, abi: this.poolAbi, functionName: 'tokens' },
-          { address: poolAddress, abi: this.poolAbi, functionName: 'getReserves' },
-          { address: poolAddress, abi: this.poolAbi, functionName: 'totalSupply' },
-          { address: poolAddress, abi: this.poolAbi, functionName: 'balanceOf', args: ['0xfbcbe7ad86b277a05fe260f037758cd5985e9c37'] }
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'stakingToken' },
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'rewardToken' },
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'earned', args: [address] },
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'balanceOf', args: [address] }
         ],
         allowFailure: false,
       }) as [
-          readonly [Address, Address], // tokens
-          readonly [bigint, bigint, number], // getReserves
-          bigint, // totalSupply
+          Address, // stakingToken
+          Address, // rewardToken
+          bigint, // earned
           bigint // balanceOf
         ];
 
       const [
-        [token0, token1],
-        [reserve0, reserve1, blockTimestampLast],
-        totalSupply,
+        stakingToken,
+        rewardToken,
+        earned,
         balanceOf
       ] = results;
+
+      const results2 = await this.publicClient.multicall({
+        contracts: [
+          { address: stakingToken, abi: this.poolAbi, functionName: 'metadata' }
+        ],
+        allowFailure: false,
+      }) as [
+          readonly [bigint, bigint, bigint, bigint, boolean, Address, Address], // metadata
+        ];
+
+      const [
+        [dec0, dec1, reserve0, reserve1, staked, token0, token1,]
+      ] = results2;
 
       return {
         token0,
         token1,
         reserve0,
         reserve1,
-        blockTimestampLast,
-        totalSupply,
+        earned,
+        stakingToken,
+        rewardToken,
         balanceOf
       };
     } catch (error) {
