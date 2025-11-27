@@ -8,6 +8,7 @@ export class AerodromeService {
     'function rewardToken() external view returns (address)',
     'function earned(address _account) external view returns (uint256 _earned)',
     'function balanceOf(address account) external view returns (uint256)',
+    'function totalSupply() external view returns (uint256)',
     'function stakingToken() external view returns (address)',
   ]);
 
@@ -41,54 +42,27 @@ export class AerodromeService {
   */
   public async getPoolGaugeData(poolAddress: Address, address: Address) {
     try {
-      const results = await this.publicClient.multicall({
+      const [ stakingToken, rewardToken, earned, balanceOf, totalSupply ] = await this.publicClient.multicall({
         contracts: [
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'stakingToken' },
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'rewardToken' },
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'earned', args: [address] },
-          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'balanceOf', args: [address] }
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'balanceOf', args: [address]},
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'totalSupply'}
         ],
         allowFailure: false,
-      }) as [
-          Address, // stakingToken
-          Address, // rewardToken
-          bigint, // earned
-          bigint // balanceOf
-        ];
+      }) as [ Address, Address, bigint, bigint, bigint];
 
-      const [
-        stakingToken,
-        rewardToken,
-        earned,
-        balanceOf
-      ] = results;
-
-      const results2 = await this.publicClient.multicall({
+      const [[dec0, dec1, reserve0, reserve1, staked, token0, token1]] = await this.publicClient.multicall({
         contracts: [
           { address: stakingToken, abi: this.poolAbi, functionName: 'metadata' }
         ],
         allowFailure: false,
-      }) as [
-          readonly [bigint, bigint, bigint, bigint, boolean, Address, Address], // metadata
-        ];
+      }) as [readonly [bigint, bigint, bigint, bigint, boolean, Address, Address]];
 
-      const [
-        [dec0, dec1, reserve0, reserve1, staked, token0, token1,]
-      ] = results2;
-
-      return {
-        token0,
-        token1,
-        reserve0,
-        reserve1,
-        earned,
-        stakingToken,
-        rewardToken,
-        balanceOf
-      };
+      return { token0, dec0, token1, dec1, reserve0, reserve1, earned, stakingToken, rewardToken, balanceOf, totalSupply };
     } catch (error) {
-      console.error('Error fetching pool data:', error);
-      throw error;
+      throw new Error("Error fetching pool data", { cause: error } );
     }
   }
 }
