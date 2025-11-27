@@ -5,7 +5,7 @@ import { AerodromeService } from "./services/aerodrome.ts";
 import { BaseTokens } from "./data/Tokens.ts";
 // import * as MoonwellGauge from "./metrics/moonwell_gauge.ts";
 // import * as BaseGauge from "./metrics/base_gauge.ts";
-import { Address, getAddress, isAddress } from "viem";
+import { Address, getAddress, isAddress, formatUnits, formatEther } from "viem";
 
 const baseService = new BaseService();
 const aerodromeService = new AerodromeService();
@@ -16,7 +16,7 @@ const ethAddress = Deno.env.get("ETH_ADDRESS") || "0x";
 try {
   if (isAddress(ethAddress)) {
     const address: Address = getAddress(ethAddress);
-    const ethBalance = await baseService.getEthBalance(address);
+    // const ethBalance = await baseService.getEthBalance(address);
 
     // baseService.getTokenTransactions(address, BaseTokens.find(x => x.symbol == "VVV")!.address).then(c => {
     //   const i = c.forEach(x => {
@@ -24,44 +24,44 @@ try {
     //   });
     // });
 
+    await chainlink.getPairPrice();
+
     baseService.getTokensBalance(address).then(balance => {
       balance.tokens.filter(x => x.balance > 0).forEach(token => {
-        console.log(`${token.symbol} Balance: ${Number(token.balance) / Math.pow(10, 18)}`);
+        console.log(`${token.symbol} Balance: ${token.balance}`);
       })
     });
 
-    const AERODROME_POOL_ADDRESS: Address =
-      "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d" as Address; // Replace with actual pool address
+    const AERODROME_GAUGE_ADDRESS: Address =
+      "0x4f09bab2f0e15e2a078a227fe1537665f55b8360" as Address; // Replace with actual pool address
 
     try {
-      const poolData = await aerodromeService.getPoolData(
-        AERODROME_POOL_ADDRESS,
-        address,
+      const poolData = await aerodromeService.getPoolGaugeData(
+        AERODROME_GAUGE_ADDRESS,
+        "0xfbcbe7ad86b277a05fe260f037758cd5985e9c37",
       );
-      console.log("Aerodrome Pool Data:", poolData);
+      console.log("Aerodrome Pool Gauge Data:");
+      console.log(`  Token0: ${poolData.token0}`);
+      console.log(`  Token1: ${poolData.token1}`);
+      console.log(`  Reserve0: ${formatUnits(poolData.reserve0, BaseTokens.find(x => x.address == poolData.token0)!.decimals)}`);
+      console.log(`  Reserve1: ${formatUnits(poolData.reserve1, BaseTokens.find(x => x.address == poolData.token1)!.decimals)}`);
+      console.log(`  Earned Rewards: ${formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)}`);
+      console.log(`  Balance Of: ${formatEther(poolData.balanceOf)}`);
+      // (token0/(10^dec0) * price0 + token1/(10^dec1) * price1) * balanceOf
+      // To fix !!! Not working yet
+      console.log(`  Balance $: ${poolData.reserve0}`);
     } catch (error) {
-      console.error("Failed to fetch pool data:", error);
+      console.error("Failed to fetch Pool Gauge Data:", error);
     }
     const coreMarketPositions = await moonwellService.getUserPositions(address);
     const openCoreMarketPositions = coreMarketPositions.filter((position) =>
       position.supplied.value > 0 || position.borrowed.value > 0
     );
-    openCoreMarketPositions.forEach((position) => {
-      if (position.supplied.value > 0) {
-        
-      }
-      if (position.borrowed.value > 0) {
-        
-      }
-    });
 
     const rewards = await moonwellService.getUserRewards(address);
     const openRewards = rewards.filter((reward) =>
       reward.supplyRewards.value > 0 || reward.borrowRewards.value > 0
     );
-    openRewards.forEach((reward) => {
-      
-    });
 
     const vaultPositions = await moonwellService.getMorphoVaultUserPositions(
       address,
@@ -69,14 +69,8 @@ try {
     const openVaultPositions = vaultPositions.filter((position) =>
       position.supplied.value > 0
     );
-    openVaultPositions.forEach((position) => {
-      
-    });
 
-    const markets = await moonwellService.getMarkets();
-    markets.forEach((market) => {
-      
-    });
+    // const markets = await moonwellService.getMarkets();
 
     const supplyBalanceUsd = openCoreMarketPositions.reduce(
       (acc, position) => acc + position.suppliedUsd,
@@ -106,10 +100,7 @@ try {
     console.debug(`Borrow Balance:     $${borrowBalanceUsd}`);
     console.debug(`Borrow Available:   $${borrowAvailable}`);
     console.debug(`Correlation Factor: ${collateralFactor}`);
-    console.debug("---------------------------------------");
-
-    // Get the ETH/USD price
-    await chainlink.getEthUsdPrice();
+    console.debug("--------------------------------");
   } else {
     throw new Error("Address invalid");
   }
