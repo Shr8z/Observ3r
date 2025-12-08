@@ -1,5 +1,6 @@
 {
   "imports": {
+    "mongodb": "npm:mongodb@^7.0.0",
     "moonwell-sdk": "npm:@moonwell-fi/moonwell-sdk@^0.8.9",
     "cron": "npm:cron@^4.3.4",
     "prom-client": "npm:prom-client@^15.1.3",

@@ -4,6 +4,6 @@ EXPOSE 8080
 WORKDIR /app
 USER deno
 COPY . .
-RUN deno install --entrypoint main.ts
+RUN deno install
 
 CMD ["deno", "run", "--allow-net", "--allow-env", "main.ts"]
