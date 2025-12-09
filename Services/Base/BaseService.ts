@@ -1,7 +1,7 @@
-import { BaseTokens } from "../data/Tokens.ts";
-import { createPublicClient, formatEther, getAddress, parseAbi, webSocket, Address, http, PublicClient } from "viem";
+import { BaseTokens } from "./BaseTokens.ts";
+import { createPublicClient, parseAbi, Address, http } from "viem";
 import { base } from "viem/chains";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+// import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 export class BaseService {
 
@@ -12,6 +12,10 @@ export class BaseService {
     transport: http(this.rpcUrl),
     batch: { multicall: { batchSize: 5, wait: 1000 } },
   });
+
+  public async getBlockNumber() {
+    return await this.publicClient.getBlockNumber();
+  }
 
   public async getEthBalance(address: Address) {
     return await this.publicClient.getBalance({ address });

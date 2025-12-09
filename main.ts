@@ -1,11 +1,13 @@
-import { Address, getAddress, isAddress, formatUnits, formatEther } from "viem";
+import express, { Application, Request, Response } from "express";
+import { Address, getAddress, isAddress, formatUnits, formatEther, parseUnits } from "viem";
 import { MongoClient } from "mongodb";
-import { MoonwellService } from "./services/MoonwellService.ts";
-import { ChainlinkService } from "./services/ChainlinkService.ts";
-import { BaseService } from "./services/BaseService.ts";
-import { AerodromeService } from "./services/AerodromeService.ts";
-import { BaseTokens } from "./data/Tokens.ts";
-import { AerodromeSchema } from "./interfaces/aerodromeSchema.ts";
+
+import { MoonwellService } from "./Services/Moonwell/MoonwellService.ts";
+import { ChainlinkService } from "./Services/Chainlink/ChainlinkService.ts";
+import { BaseService } from "./Services/Base/BaseService.ts";
+import { BaseTokens } from "./Services/Base/BaseTokens.ts";
+import { AerodromeService } from "./Services/Aerodrome/AerodromeService.ts";
+import { AerodromeSchema } from "./Services/Aerodrome/AerodromeSchema.ts";
 
 const mongodbConnectionString = encodeURI(Deno.env.get("MONGODB_CONNECTION_STRING")!) || "";
 if (!mongodbConnectionString) {
@@ -22,82 +24,78 @@ await dbClient.connect();
 
 const db = dbClient.db("Observ3r");
 const aerodromeCollection = db.collection<AerodromeSchema>("aerodrome");
-const moonwellCollection = db.collection<AerodromeSchema>("moonwell");
-// await aerodromeCollection.insertOne({
-//   name: "deno",
-//   skills: ["dancing", "hiding"],
-// });
+// const moonwellCollection = db.collection<AerodromeSchema>("moonwell");
+
 // const allAerodrome = await aerodromeCollection.find({ name: "deno" }).toArray();
 
 // console.log(allAerodrome[0]._id);
 
 const ethAddress = Deno.env.get("ETH_ADDRESS") || "0x";
 
-async function handler(_req: Request): Promise<Response> {
+const app: Application = express();
+
+app.get("/", (req: Request, res: Response) => {
+  res.send("Welcome to the Dinosaur API!");
+});
+
+// GET http://localhost:8000/api/aerodrome/pool/0x4f09bab2f0e15e2a078a227fe1537665f55b8360?walletaddress=0xfbcbe7ad86b277a05fe260f037758cd5985e9c37 HTTP/1.1
+app.get("/api/aerodrome/pool/:poolAddress", async (req: Request, res: Response) => {
+  const poolAddress = req.params.poolAddress;
+  const walletAddress: Address = getAddress(req.query.walletaddress as string);
+  console.log(`START Processing Aerodrome Pool (${poolAddress}) for address: ${walletAddress}`);
+
   try {
-    if (isAddress(ethAddress)) {
-      const address: Address = getAddress(ethAddress);
-      // const ethBalance = await baseService.getEthBalance(address);
+    const poolData = await aerodromeService.getPoolGaugeData(poolAddress, walletAddress);
+    const resPrice0 = await chainlink.getTokenPrice(poolData.token0) * Number(poolData.reserve0 / poolData.dec0);
+    const resPrice1 = await chainlink.getTokenPrice(poolData.token1) * Number(poolData.reserve1 / poolData.dec1);
+    const poolTVL = resPrice0 + resPrice1;
+    const userShare = (Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply)));
 
-      // baseService.getTokenTransactions(address, BaseTokens.find(x => x.symbol == "VVV")!.address).then(c => {
-      //   const i = c.forEach(x => {
-      //     console.log(x.transactionHash);
-      //   });
-      // });
+    const poolReturn: AerodromeSchema = {
+      timestamp: new Date(),
+      blockNumber: Number(await baseService.getBlockNumber()),
+      poolAddress: poolAddress,
+      token0: poolData.token0,
+      token1: poolData.token1,
+      reserve0Price: resPrice0,
+      reserve1Price: resPrice1,
+      rewardToken: poolData.rewardToken,
+      rewardEarned: Number(formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)),
+      poolTVL: poolTVL,
+      userShare: userShare,
+      marketPrice: userShare * poolTVL // = 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share >> vfat get res0 and res1 from pool balanceOf ERC20 calls
+    };
+    res.status(200).json(poolReturn);
+    await aerodromeCollection.insertOne(poolReturn);
+    console.log(`END Processing Aerodrome Pool (${poolAddress}) for address: ${walletAddress}`);
+  } catch (error) {
+    res.status(404).json({error: "Failed to fetch Pool Gauge Data", cause: error});
+  }  
+});
 
-      await chainlink.getPairPrice();
+app.get("/api/moonwell", async (req: Request, res: Response) => {
+  try {
+    if (isAddress(req.query.walletaddress as string)) {
+      const walletAddress: Address = getAddress(req.query.walletaddress as string);
+      console.log(`Processing address: ${walletAddress}`);
 
-      baseService.getTokensBalance(address).then(balance => {
+      baseService.getTokensBalance(walletAddress).then(balance => {
         balance.tokens.filter(x => x.balance > 0).forEach(token => {
           console.log(`${token.symbol} Balance: ${token.balance}`);
         })
       });
 
-      const AERODROME_GAUGE_ADDRESS: Address =
-        "0x4f09bab2f0e15e2a078a227fe1537665f55b8360" as Address; // Replace with actual pool address
-
-      try {
-        const poolData = await aerodromeService.getPoolGaugeData(
-          AERODROME_GAUGE_ADDRESS,
-          "0xfbcbe7ad86b277a05fe260f037758cd5985e9c37",
-        );
-
-        const res0 = Number(poolData.reserve0 / poolData.dec0);
-        const resPrice0 = await chainlink.getTokenPrice(poolData.token0) * res0;
-        const res1 = poolData.reserve1 / poolData.dec1;
-        const resPrice1 = await chainlink.getTokenPrice(poolData.token1) * Number(res1);
-
-        console.log("Aerodrome Pool Gauge Data:");
-        console.log(`  Token0: ${poolData.token0}`);
-        console.log(`  Token1: ${poolData.token1}`);
-        console.log(`  Reserve0: ${res0} - $${resPrice0}`);
-        console.log(`  Reserve1: ${res1} - $${resPrice1}`);
-        console.log(`  Earned Rewards: ${formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)}`);
-        console.log(`  Balance Of: ${formatEther(poolData.balanceOf)}`);
-        console.log(`  TotalSupply: ${formatEther(poolData.totalSupply)}`);
-
-        const poolTVL = resPrice0 + resPrice1;
-        console.log(`  Pool TVL: $${poolTVL}`);
-        const userShare = Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply));
-        console.log(`  User Share: ${ (userShare * 100).toFixed(4) }%`);
-        const marketPrice = userShare * poolTVL; // 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share ! Who is right ? 
-        console.log(`  Market Price: $${marketPrice}`);
-      } catch (error) {
-        console.error("Failed to fetch Pool Gauge Data:", error);
-      }
-      const coreMarketPositions = await moonwellService.getUserPositions(address);
+      const coreMarketPositions = await moonwellService.getUserPositions(walletAddress);
       const openCoreMarketPositions = coreMarketPositions.filter((position) =>
         position.supplied.value > 0 || position.borrowed.value > 0
       );
 
-      const rewards = await moonwellService.getUserRewards(address);
+      const rewards = await moonwellService.getUserRewards(walletAddress);
       const openRewards = rewards.filter((reward) =>
         reward.supplyRewards.value > 0 || reward.borrowRewards.value > 0
       );
 
-      const vaultPositions = await moonwellService.getMorphoVaultUserPositions(
-        address,
-      );
+      const vaultPositions = await moonwellService.getMorphoVaultUserPositions(walletAddress);
       const openVaultPositions = vaultPositions.filter((position) =>
         position.supplied.value > 0
       );
@@ -125,7 +123,7 @@ async function handler(_req: Request): Promise<Response> {
         ((borrowBalanceUsd || 1) / (collateralBalanceUsd || 1));
 
       console.debug("------- Moonwell Summary -------");
-      console.debug(`Address:            ${address}`);
+      console.debug(`Address:            ${walletAddress}`);
       console.debug(`Vault Balance:      ${vaultBalance}`);
       console.debug(`Supply Balance:     $${supplyBalanceUsd}`);
       console.debug(`Collateral Balance: $${collateralBalanceUsd}`);
@@ -133,14 +131,16 @@ async function handler(_req: Request): Promise<Response> {
       console.debug(`Borrow Available:   $${borrowAvailable}`);
       console.debug(`Correlation Factor: ${collateralFactor}`);
       console.debug("--------------------------------");
+
+      res.status(200).send("Done !");
     } else {
-      throw new Error("Address invalid");
+      res.status(404).send("Invalid or missing wallet address");
     }
   } catch (error) {
     console.error(`Failed to process address ${ethAddress}:`, error);
+    res.status(404).send("Failed to process request");
   }
-  return new Response("Done !");
-}
-Deno.serve(handler);
+});
 
-console.log(`Service is running...`);
+app.listen(8000);
+console.log(`Server is running on http://localhost:8000`);

@@ -1,14 +1,13 @@
 import {
 Address,
   createPublicClient,
-  formatEther,
   formatUnits,
   getAddress,
   http,
   parseAbi,
 } from "viem";
 import { base } from "viem/chains";
-import { DataFeeds } from "../data/DataFeeds.ts";
+import { DataFeeds } from "./DataFeeds.ts";
 
 export class ChainlinkService {
   private rpcUrl = Deno.env.get("RPC_URL") || "https://mainnet.base.org";

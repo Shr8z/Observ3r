@@ -1,4 +1,4 @@
-name: Deno
+name: 'Deno Container CI/CD Pipeline'
 on:
   push:
     branches: ["master"]
@@ -9,24 +9,49 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build
+  # lint-and-test:
+  #   name: Lint and Test
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #   - name: Clone repository
+  #     uses: actions/checkout@main
+
+  #   - name: Setup Deno
+  #     uses: denoland/setup-deno@v2.0.3
+  #     with:
+  #       deno-version: 2.5.6
+
+  #   - name: Install
+  #     run: deno install
+
+  #   - name: Linter
+  #     run: deno lint
+
+  #   - name: Tests
+  #     run: deno test -A
+
+  build-and-deploy:
+    name: Build and Deploy to Azure Container Registry
     runs-on: ubuntu-latest
-
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2.0.3
-        with:
-          deno-version: 2.4.2
-
-      - name: Install
-        run: deno install
-
-      - name: Linter
-        run: deno lint
-
-      - name: Tests
-        run: deno test -A
+    # checkout the repo
+    - name: 'Checkout GitHub Action'
+      uses: actions/checkout@main
+      
+    - name: 'Login via Azure CLI'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: 'Build and push image'
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    - run: |
+        docker build . -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/observ3r:${{ github.sha }}
+        docker tag ${{ secrets.REGISTRY_LOGIN_SERVER }}/observ3r:${{ github.sha }} ${{ secrets.REGISTRY_LOGIN_SERVER }}/observ3r:latest
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/observ3r:${{ github.sha }}
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/observ3r:latest
