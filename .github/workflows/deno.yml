@@ -33,6 +33,7 @@ jobs:
 
   build-and-deploy:
     name: Build and Deploy to Azure Container Registry
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
     # checkout the repo
