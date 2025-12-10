@@ -1,5 +1,5 @@
 import express, { Application, Request, Response } from "express";
-import { Address, getAddress, isAddress, formatUnits, formatEther, parseUnits } from "viem";
+import { Address, getAddress, isAddress, formatUnits, formatEther } from "viem";
 import { MongoClient } from "mongodb";
 
 import { MoonwellService } from "./Services/Moonwell/MoonwellService.ts";
@@ -34,7 +34,7 @@ const ethAddress = Deno.env.get("ETH_ADDRESS") || "0x";
 
 const app: Application = express();
 
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_req: Request, res: Response) => {
   res.send("Welcome to the Dinosaur API!");
 });
 
@@ -91,7 +91,7 @@ app.get("/api/moonwell", async (req: Request, res: Response) => {
       );
 
       const rewards = await moonwellService.getUserRewards(walletAddress);
-      const openRewards = rewards.filter((reward) =>
+      const _openRewards = rewards.filter((reward) =>
         reward.supplyRewards.value > 0 || reward.borrowRewards.value > 0
       );
 
