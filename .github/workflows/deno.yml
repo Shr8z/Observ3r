@@ -1,7 +1,7 @@
 name: 'Deno Container CI/CD Pipeline'
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "develop"]
   pull_request:
     branches: ["master"]
 
@@ -33,7 +33,7 @@ jobs:
 
   build-and-deploy:
     name: Build and Deploy to Azure Container Registry
-    if: ${{ github.ref == 'refs/heads/main' }}
+    if: ${{ github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     steps:
     # checkout the repo
