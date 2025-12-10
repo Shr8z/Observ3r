@@ -1,148 +1,76 @@
 # Observ3r
 
-## BUILD
+Observ3r is a small Deno-based on-chain observer for the Base network. It fetches token balances, Chainlink feed prices, Aerodrome pool/gauge data and Moonwell positions/rewards for a configured address.
 
-``` shell
-export version=1.4.0
-docker build -t localhost:32000/observ3r:$version .
-docker tag localhost:32000/observ3r:$version localhost:32000/observ3r:latest
-docker push localhost:32000/observ3r:$version
-docker push localhost:32000/observ3r:latest
+**Key features:**
+- Query token balances and ETH balance for an address
+- Read Chainlink price feeds and pair prices
+- Inspect Aerodrome pool/gauge data (reserves, TVL, user share, earned rewards)
+- Fetch Moonwell user positions, rewards and vault information
+
+**Runtime:** Deno (see `deno.json`)
+
+## Quick Start
+
+Set an address and run the main script (allow network and environment access):
+
+```bash
+ETH_ADDRESS=0xYourAddress RPC_URL=https://mainnet.base.org deno run --allow-net --allow-env main.ts
 ```
 
-## Update Dependencies
+You can run without `ETH_ADDRESS` for development, but `main.ts` will validate the address and exit if it is invalid.
 
-``` shell
-deno outdated
-deno outdated --update
+Docker (build + run):
+
+```bash
+docker build -t observ3r:latest .
+docker run --env ETH_ADDRESS=0xYourAddress --env RPC_URL=https://mainnet.base.org observ3r:latest
 ```
 
-### Exemple code to interact with OnChain Contract
+## Configuration
 
-``` typescript
-// portfolio.ts
+- `ETH_ADDRESS` (optional but required for useful output): Ethereum/Base address to inspect. Example: `0x742d35Cc6634C0532925a3b844Bc454e4438f44e`.
+- `RPC_URL` (optional): RPC endpoint for the Base network. Example: `https://mainnet.base.org`. Services default to a public RPC if unset.
 
-import { createPublicClient, formatEther, getAddress, parseAbi, webSocket } from "https://esm.sh/viem";
-import { mainnet } from "https://esm.sh/viem/chains";
-import { generatePrivateKey, privateKeyToAccount } from "https://esm.sh/viem/accounts";
+## Permissions
 
-// Replace with your Base ETH L2 chain provider URL
-const providerUrl = "wss://base-rpc.publicnode.com";
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: webSocket(providerUrl),
-});
+- `--allow-net` to query RPC and external endpoints
+- `--allow-env` to read `ETH_ADDRESS` and other env vars
 
-// Replace with your wallet address
-const walletAddress = "0xddf093745b0a723c68a8f040ab03e72eee2b8f60";
+## Project structure
 
-// ERC-20 token ABI (Application Binary Interface)
-const erc20Abi = parseAbi([
-  "function balanceOf(address owner) view returns (uint256)",
-  "function symbol() view returns (string)",
-]);
+- `main.ts`: entrypoint. Validates `ETH_ADDRESS`, calls services and prints a summary (Chainlink pair price, token balances, Aerodrome gauge data, Moonwell summary).
+- `services/`:
+  - `base.ts`: RPC helpers and token balance utilities (multicall / balance formatting).
+  - `aerodrome.ts`: Fetches Aerodrome pool & gauge data (reserves, reward token, earned, stake balances).
+  - `chainlink.ts`: Reads Chainlink feeds (pair prices) and maps token addresses to USD prices.
+  - `moonwell.ts`: Wraps Moonwell client functionality: user positions, rewards and vault data.
+- `data/`:
+  - `Tokens.ts`: Token metadata (address, decimals, symbol) used to format balances and look up tokens.
+  - `DataFeeds.ts`: Chainlink feed mappings used by Chainlink service for price lookups.
+  - `data.json`: Additional data (not required by `main.ts` by default).
 
-// List of ERC-20 token addresses you want to check
-const tokenAddresses = [
-  "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
-  "0xacfe6019ed1a7dc6f7b508c02d1b04ec88cc21bf",
-  "0x321b7ff75154472b18edb199033ff4d116f340ff",
-  // Add more token addresses as needed
-];
+## Example output patterns (what to expect)
 
-const chainlinkEthUsdAddress = "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70";
+- Chainlink pair prints: `ETH/USD $<value>`
+- Token balances: `USDC Balance: 123.45`
+- Aerodrome Pool Gauge Data: a block with Token0/Token1, reserves and $TVL
+- Moonwell Summary: Vault Balance, Supply/Collateral/Borrow balances and a correlation factor
 
-const chainlinkEthUsdAbi = parseAbi([
-  "function latestAnswer() view returns (int256)",
-  "function decimals() view returns (uint8)"
-]);
+## Development
 
-// Function to get the portfolio from a dedicated block
-async function getPortfolio(blockNumber: bigint) {
-  try {
-    // Get the balance of the wallet at the specified block
-    const balance = await publicClient.getBalance({
-      address: walletAddress,
-      blockNumber: blockNumber,
-    });
-    console.log(`Balance at block ${blockNumber}: ${formatEther(balance)} ETH`);
+- Update dependencies with `deno outdated` and `deno outdated --update`.
+- Use `deno run --allow-net --allow-env main.ts` during development.
 
-    // Get the transaction count at the specified block
-    const txCount = await publicClient.getTransactionCount({
-      address: walletAddress,
-      blockNumber: blockNumber,
-    });
-    console.log(`Transaction Count at block ${blockNumber}: ${txCount}`);
+## Notes & Next steps
 
-    // Get the list of tokens (ERC-20) held by the wallet at the specified block
-    for (const tokenAddress of tokenAddresses) {
-      const contract = {
-        address: getAddress(tokenAddress),
-        abi: erc20Abi,
-      };
+- The repo includes a `Dockerfile` for containerized runs. You can add a `deno task start` entry in `deno.json` to simplify running.
+- If you'd like, I can add a `deno task` to `deno.json`, example outputs, or a small test harness.
 
-      const tokenSymbol = await publicClient.readContract({
-        ...contract,
-        functionName: "symbol",
-        blockNumber: blockNumber,
-      });
+## License
 
-      const tokenBalance = await publicClient.readContract({
-        ...contract,
-        functionName: "balanceOf",
-        args: [walletAddress],
-        blockNumber: blockNumber,
-      });
+See the `LICENSE` file in the repository for license terms.
 
-      console.log(
-        `Token: ${tokenSymbol}, Balance at block ${blockNumber}: ${formatEther(tokenBalance)
-        }`,
-      );
-    }
-  } catch (error) {
-    console.error("Error fetching portfolio:", error);
-  }
-}
+---
 
-async function getEthUsdPrice() {
-  try {
-    const contract = {
-      address: getAddress(chainlinkEthUsdAddress),
-      abi: chainlinkEthUsdAbi,
-    };
-
-    const price = await publicClient.readContract({
-      ...contract,
-      functionName: 'latestAnswer',
-    });
-
-    const decimals = await publicClient.readContract({
-      ...contract,
-      functionName: 'decimals',
-    })
-
-    console.log(`ETH/USD Price: $${price.toString() / (1 * 10^decimals)}`);
-  } catch (error) {
-    console.error('Error fetching ETH/USD price:', error);
-  }
-}
-
-// Function to create a new wallet
-function createNewWallet() {
-  const privateKey = generatePrivateKey();
-  const account = privateKeyToAccount(privateKey);
-  console.log(`New Wallet Address: ${account.address}`);
-  console.log(`Private Key: ${privateKey}`);
-  return account;
-}
-
-// Replace with the block number you want to query
-const blockNumber = await publicClient.getBlockNumber();
-await getPortfolio(blockNumber);
-
-// Get the ETH/USD price
-await getEthUsdPrice();
-
-// Create a new wallet
-// const newWallet = createNewWallet();
-```
+If you'd like, I can now run the app with your address (if you provide it), add badges, or create a `deno task` entry for `start` in `deno.json`.

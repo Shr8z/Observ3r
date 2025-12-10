@@ -11,11 +11,10 @@
             "program": "${workspaceFolder}/main.ts",
             "cwd": "${workspaceFolder}",
             "env": {
-                "CRONTAB": "* * * * *",
                 "ETH_ADDRESS": "0xddf093745b0a723c68a8f040ab03e72eee2b8f60",
-                "DENO_DIR": "/tmp/deno/"
+                "RPC_URL": "https://base-mainnet.chainnodes.org/***"
             },
-            "runtimeExecutable": "/home/shr8z/.deno/bin/deno",
+            "runtimeExecutable": "/usr/local/bin/deno",
             "runtimeArgs": [
                 "run",
                 "--unstable",

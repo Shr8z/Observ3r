@@ -1,0 +1,105 @@
+[
+    {
+        "type": "AERODROME_V2",
+        "wallet": "0xddf093745b0a723c68a8f040ab03e72eee2b8f60",
+        "chainId": 8453,
+        "address": "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+        "poolFactoryAddress": "0x420dd381b31aef6683db6b902084cb0ffece40da",
+        "isStable": false,
+        "symbol": "vAMM-USDC/AERO",
+        "decimals": 18,
+        "balance": "0.000066328492963339",
+        "price": 112074234.70149788,
+        "fee": 30,
+        "currentFee": 30,
+        "underlying": [
+            {
+                "wallet": "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+                "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+                "priceTokenAddress": null,
+                "name": "USD Coin",
+                "symbol": "USDC",
+                "decimals": 6,
+                "chainId": 8453,
+                "totalSupply": "4226471295356454",
+                "price": 0.99982341,
+                "distanceToOracle": 0,
+                "oracleAddress": "0x0ee7145e1370653533e2f2e824424be2aa95a4aa",
+                "liquidity": 120665447.60935,
+                "reserves": "159929588123618",
+                "reserve": "23861889890237",
+                "virtualReserve": "23861889890237",
+                "activeReserve": "24152136736463",
+                "inRangeReserve": "24152136736463",
+                "balance": "3717.779610",
+                "weight": 1
+            },
+            {
+                "wallet": "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+                "address": "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+                "priceTokenAddress": null,
+                "name": "Aerodrome",
+                "symbol": "AERO",
+                "decimals": 18,
+                "chainId": 8453,
+                "totalSupply": "1776330407327851994442701284",
+                "price": 1.0364865178725775,
+                "distanceToOracle": 1,
+                "liquidity": 33013792.901333,
+                "reserves": "34289225765262159404947085",
+                "reserve": "23014546762666749922975176",
+                "activeReserve": "22717098229934678971906966",
+                "inRangeReserve": "22717098229934678971906966",
+                "virtualReserve": "23014546762666749922975176",
+                "balance": "3585.760100478358253895",
+                "weight": 1
+            }
+        ],
+        "gaugeAddress": "0x4f09bab2f0e15e2a078a227fe1537665f55b8360",
+        "farmAddress": "0x4f09bab2f0e15e2a078a227fe1537665f55b8360",
+        "pendingRewards": [
+            {
+                "amount": "59415511528728450822",
+                "token": {
+                    "address": "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+                    "priceTokenAddress": null,
+                    "name": "Aerodrome",
+                    "symbol": "AERO",
+                    "decimals": 18,
+                    "chainId": 8453,
+                    "totalSupply": "1776330407327851994442701284",
+                    "price": 1.0364865178725775,
+                    "distanceToOracle": 1,
+                    "liquidity": 33013792.901333,
+                    "reserves": "34289225765262159404947085"
+                }
+            }
+        ],
+        "offChainRewards": [],
+        "sickleAddress": "0xfbcbe7ad86b277a05fe260f037758cd5985e9c37",
+        "rewardTokenAddress": "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+        "positionSettings": {
+            "pool": "0x0000000000000000000000000000000000000000",
+            "router": "0x0000000000000000000000000000000000000000",
+            "automateRewards": false,
+            "rewardConfig": {
+                "rewardBehavior": 0,
+                "harvestTokenOut": "0x0000000000000000000000000000000000000000"
+            },
+            "autoExit": false,
+            "exitConfig": {
+                "baseTokenIndex": "0",
+                "quoteTokenIndex": "0",
+                "triggerPriceLow": "0",
+                "exitTokenOutLow": "0x0000000000000000000000000000000000000000",
+                "triggerPriceHigh": "0",
+                "exitTokenOutHigh": "0x0000000000000000000000000000000000000000",
+                "triggerReservesLow": [],
+                "triggerReservesTokensOut": [],
+                "priceImpactBP": "0",
+                "slippageBP": "0"
+            },
+            "extraData": "0x"
+        }
+    }
+]
