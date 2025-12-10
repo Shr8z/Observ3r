@@ -2,15 +2,19 @@ import { Address } from "viem";
 
 export interface AerodromeSchema {
   timestamp: Date;
+  poolName: string;
   poolAddress: Address;
+  walletAddress: Address;
   blockNumber: number;
   token0: string;
   token1: string;
-  reserve0Price: number;
-  reserve1Price: number;
+  res0: number;
+  res1: number;
+  price0: number;
+  price1: number;
   rewardToken: string;
   rewardEarned: number;
   poolTVL: number;
-  userShare: number;
-  marketPrice: number;
+  positionShare: number;
+  positionPrice: number;
 }
