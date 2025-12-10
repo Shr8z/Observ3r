@@ -9,27 +9,27 @@ permissions:
   contents: read
 
 jobs:
-  # lint-and-test:
-  #   name: Lint and Test
-  #   runs-on: ubuntu-latest
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #   - name: Clone repository
-  #     uses: actions/checkout@main
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@main
 
-  #   - name: Setup Deno
-  #     uses: denoland/setup-deno@v2.0.3
-  #     with:
-  #       deno-version: 2.5.6
+    - name: Setup Deno
+      uses: denoland/setup-deno@v2.0.3
+      with:
+        deno-version: 2.5.6
 
-  #   - name: Install
-  #     run: deno install
+    - name: Install
+      run: deno install
 
-  #   - name: Linter
-  #     run: deno lint
+    - name: Linter
+      run: deno lint
 
-  #   - name: Tests
-  #     run: deno test -A
+    # - name: Tests
+    #   run: deno test -A
 
   build-and-deploy:
     name: Build and Deploy to Azure Container Registry
