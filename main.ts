@@ -4,10 +4,13 @@ import { MongoClient } from "mongodb";
 
 import { MoonwellService } from "./Services/Moonwell/MoonwellService.ts";
 import { ChainlinkService } from "./Services/Chainlink/ChainlinkService.ts";
+
 import { BaseService } from "./Services/Base/BaseService.ts";
 import { BaseTokens } from "./Services/Base/BaseTokens.ts";
+
 import { AerodromeService } from "./Services/Aerodrome/AerodromeService.ts";
 import { AerodromeSchema } from "./Services/Aerodrome/AerodromeSchema.ts";
+import { AerodromePoolGauge } from "./Services/Aerodrome/AerodromePoolGauge.ts";
 
 const mongodbConnectionString = encodeURI(Deno.env.get("MONGODB_CONNECTION_STRING")!) || "";
 if (!mongodbConnectionString) {
@@ -40,34 +43,52 @@ app.get("/", (_req: Request, res: Response) => {
 
 // GET http://localhost:8000/api/aerodrome/pool/0x4f09bab2f0e15e2a078a227fe1537665f55b8360?walletaddress=0xfbcbe7ad86b277a05fe260f037758cd5985e9c37 HTTP/1.1
 app.get("/api/aerodrome/pool/:poolAddress", async (req: Request, res: Response) => {
+  const uuid = crypto.randomUUID();
   const poolAddress = req.params.poolAddress;
   const walletAddress: Address = getAddress(req.query.walletaddress as string);
-  console.log(`START Processing Aerodrome Pool (${poolAddress}) for address: ${walletAddress}`);
+  console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress})`);
+  const sickleAddress = await aerodromeService.getSickleContractAddress(walletAddress); // just to test the new function
+  if (sickleAddress) {
+    console.log(`[${uuid}] Sickle Contract (${sickleAddress}) found for Wallet (${walletAddress})`);
+  } else {
+    console.log(`[${uuid}] No Sickle Contract found for (${walletAddress})`);
+  }
 
   try {
-    const poolData = await aerodromeService.getPoolGaugeData(poolAddress, walletAddress);
-    const resPrice0 = await chainlink.getTokenPrice(poolData.token0) * Number(poolData.reserve0 / poolData.dec0);
-    const resPrice1 = await chainlink.getTokenPrice(poolData.token1) * Number(poolData.reserve1 / poolData.dec1);
+    let poolData = await aerodromeService.getPoolGaugeData(poolAddress, walletAddress);
+    if (poolData.balanceOf === 0n && sickleAddress) {
+      poolData = await aerodromeService.getPoolGaugeData(poolAddress, sickleAddress);
+      console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) from Sickle Contract (${sickleAddress})`);
+    }
+
+    const price0 = await chainlink.getTokenPrice(poolData.token0);
+    const price1 = await chainlink.getTokenPrice(poolData.token1);
+    const resPrice0 = price0 * Number(poolData.reserve0 / poolData.dec0);
+    const resPrice1 = price1 * Number(poolData.reserve1 / poolData.dec1);
     const poolTVL = resPrice0 + resPrice1;
     const userShare = (Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply)));
 
     const poolReturn: AerodromeSchema = {
       timestamp: new Date(),
       blockNumber: Number(await baseService.getBlockNumber()),
+      poolName: AerodromePoolGauge.find(x => x.address.toLowerCase() === poolAddress.toLowerCase())?.name || "Unknown Pool",
       poolAddress: poolAddress,
+      walletAddress: walletAddress,
       token0: poolData.token0,
       token1: poolData.token1,
-      reserve0Price: resPrice0,
-      reserve1Price: resPrice1,
+      res0: Number(poolData.reserve0),
+      res1: Number(poolData.reserve1),
+      price0: price0,
+      price1:  price1,
       rewardToken: poolData.rewardToken,
       rewardEarned: Number(formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)),
       poolTVL: poolTVL,
-      userShare: userShare,
-      marketPrice: userShare * poolTVL // = 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share >> vfat get res0 and res1 from pool balanceOf ERC20 calls
+      positionShare: userShare,
+      positionPrice: userShare * poolTVL // = 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share >> vfat get res0 and res1 from pool balanceOf ERC20 calls
     };
     res.status(200).json(poolReturn);
     await aerodromeCollection.insertOne(poolReturn);
-    console.log(`END Processing Aerodrome Pool (${poolAddress}) for address: ${walletAddress}`);
+    console.log(`[${uuid}] Fetching Completed Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) `);
   } catch (error) {
     res.status(404).json({error: "Failed to fetch Pool Gauge Data", cause: error});
   }  
@@ -119,8 +140,7 @@ app.get("/api/moonwell", async (req: Request, res: Response) => {
         0,
       );
       const borrowAvailable = collateralBalanceUsd - borrowBalanceUsd;
-      const collateralFactor = 1 -
-        ((borrowBalanceUsd || 1) / (collateralBalanceUsd || 1));
+      const collateralFactor = 1 - ((borrowBalanceUsd || 1) / (collateralBalanceUsd || 1));
 
       console.debug("------- Moonwell Summary -------");
       console.debug(`Address:            ${walletAddress}`);

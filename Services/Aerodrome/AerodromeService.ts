@@ -17,6 +17,10 @@ export class AerodromeService {
     'function metadata() external view returns (uint256 dec0, uint256 dec1, uint256 r0, uint256 r1, bool st, address t0, address t1)',
   ]);
 
+  private sickleAbi = parseAbi([
+    'function getSickle(address user) external view returns (address)',
+  ]);
+
   // Initialize Viem client for Base network
   private rpcUrl = Deno.env.get("RPC_URL") || "https://mainnet.base.org";
 
@@ -36,14 +40,14 @@ export class AerodromeService {
   // vAMM-USDC/AERO Pool = 0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d
   // Call metadata() to get token0 address, token1 address, reserve0, reserve1 
   */
-  public async getPoolGaugeData(poolAddress: Address, address: Address) {
+  public async getPoolGaugeData(poolAddress: Address, walletAddress: Address) {
     try {
       const [ stakingToken, rewardToken, earned, balanceOf, totalSupply ] = await this.publicClient.multicall({
         contracts: [
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'stakingToken' },
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'rewardToken' },
-          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'earned', args: [address] },
-          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'balanceOf', args: [address]},
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'earned', args: [walletAddress] },
+          { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'balanceOf', args: [walletAddress]},
           { address: poolAddress, abi: this.poolGaugeAbi, functionName: 'totalSupply'}
         ],
         allowFailure: false,
@@ -59,6 +63,21 @@ export class AerodromeService {
       return { token0, dec0, token1, dec1, reserve0, reserve1, earned, stakingToken, rewardToken, balanceOf, totalSupply };
     } catch (error) {
       throw new Error("Error fetching pool data", { cause: error } );
+    }
+  }
+
+  // VFAT Sickle Contract Address for Aerodrome Pools
+  public async getSickleContractAddress(walletAddress: Address): Promise<Address | undefined> {
+    try {
+      const [sickleAddress] = await this.publicClient.multicall({
+          contracts: [
+            { address: "0xbf325bc7921256f842b3bc99c8ef4e2f72999556", abi: this.sickleAbi, functionName: 'getSickle', args: [walletAddress] }
+          ],
+          allowFailure: false,
+        }) as [Address];
+      return sickleAddress;
+    } catch (_error) {
+      return undefined;
     }
   }
 }
