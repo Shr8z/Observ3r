@@ -76,7 +76,7 @@ export class AerodromeService {
           allowFailure: false,
         }) as [Address];
       return sickleAddress;
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   }
