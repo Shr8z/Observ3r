@@ -1,105 +1,103 @@
 import express, { Application, Request, Response } from "express";
 import { Address, getAddress, isAddress, formatUnits, formatEther } from "viem";
-import { MongoClient } from "mongodb";
-
-import { MoonwellService } from "./Services/Moonwell/MoonwellService.ts";
-import { ChainlinkService } from "./Services/Chainlink/ChainlinkService.ts";
-
+import { Collection, Db, MongoClient } from "mongodb";
 import { BaseService } from "./Services/Base/BaseService.ts";
 import { BaseTokens } from "./Services/Base/BaseTokens.ts";
-
 import { AerodromeService } from "./Services/Aerodrome/AerodromeService.ts";
 import { AerodromeSchema } from "./Services/Aerodrome/AerodromeSchema.ts";
 import { AerodromePoolGauge } from "./Services/Aerodrome/AerodromePoolGauge.ts";
+import { MoonwellService } from "./Services/Moonwell/MoonwellService.ts";
+import { MoonwellSchema } from "./Services/Moonwell/MoonwellSchema.ts";
+import { ChainlinkService } from "./Services/Chainlink/ChainlinkService.ts";
 
 const mongodbConnectionString = encodeURI(Deno.env.get("MONGODB_CONNECTION_STRING")!) || "";
 if (!mongodbConnectionString) {
   throw new Error("MONGODB_CONNECTION_STRING is not set in environment variables");
 }
 
-const baseService = new BaseService();
-const aerodromeService = new AerodromeService();
-const moonwellService = new MoonwellService();
-const chainlink = new ChainlinkService();
-const dbClient = new MongoClient(mongodbConnectionString);
+const app: Application = express();
+const baseService: BaseService = new BaseService();
+const aerodromeService: AerodromeService = new AerodromeService();
+const moonwellService: MoonwellService = new MoonwellService();
+const chainlink: ChainlinkService = new ChainlinkService();
+const dbClient: MongoClient = new MongoClient(mongodbConnectionString);
 
 await dbClient.connect();
 
-const db = dbClient.db("Observ3r");
-const aerodromeCollection = db.collection<AerodromeSchema>("aerodrome");
-// const moonwellCollection = db.collection<AerodromeSchema>("moonwell");
+const db: Db = dbClient.db("Observ3r");
+const aerodromeCollection: Collection<AerodromeSchema> = db.collection<AerodromeSchema>("aerodrome");
+const moonwellCollection: Collection<MoonwellSchema> = db.collection<MoonwellSchema>("moonwell");
 
 // const allAerodrome = await aerodromeCollection.find({ name: "deno" }).toArray();
-
 // console.log(allAerodrome[0]._id);
 
-const ethAddress = Deno.env.get("ETH_ADDRESS") || "0x";
-
-const app: Application = express();
-
 app.get("/", (_req: Request, res: Response) => {
-  res.send("Welcome to the Dinosaur API!");
+  res.send("Welcome to Observ3r API !");
 });
 
-// GET http://localhost:8000/api/aerodrome/pool/0x4f09bab2f0e15e2a078a227fe1537665f55b8360?walletaddress=0xfbcbe7ad86b277a05fe260f037758cd5985e9c37 HTTP/1.1
 app.get("/api/aerodrome/pool/:poolAddress", async (req: Request, res: Response) => {
   const uuid = crypto.randomUUID();
-  const poolAddress = req.params.poolAddress;
-  const walletAddress: Address = getAddress(req.query.walletaddress as string);
-  console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress})`);
-  const sickleAddress = await aerodromeService.getSickleContractAddress(walletAddress); // just to test the new function
-  if (sickleAddress) {
-    console.log(`[${uuid}] Sickle Contract (${sickleAddress}) found for Wallet (${walletAddress})`);
-  } else {
-    console.log(`[${uuid}] No Sickle Contract found for (${walletAddress})`);
-  }
+  if (isAddress(req.params.poolAddress as string) && isAddress(req.query.walletaddress as string)) {
+    const poolAddress: Address = getAddress(req.params.poolAddress as string);
+    const walletAddress: Address = getAddress(req.query.walletaddress as string);
 
-  try {
-    let poolData = await aerodromeService.getPoolGaugeData(poolAddress, walletAddress);
-    if (poolData.balanceOf === 0n && sickleAddress) {
-      poolData = await aerodromeService.getPoolGaugeData(poolAddress, sickleAddress);
-      console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) from Sickle Contract (${sickleAddress})`);
+    console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress})`);
+    const sickleAddress = await aerodromeService.getSickleContractAddress(walletAddress);
+    if (sickleAddress) {
+      console.log(`[${uuid}] Sickle Contract (${sickleAddress}) found for Wallet (${walletAddress})`);
+    } else {
+      console.log(`[${uuid}] No Sickle Contract found for (${walletAddress})`);
     }
 
-    const price0 = await chainlink.getTokenPrice(poolData.token0);
-    const price1 = await chainlink.getTokenPrice(poolData.token1);
-    const resPrice0 = price0 * Number(poolData.reserve0 / poolData.dec0);
-    const resPrice1 = price1 * Number(poolData.reserve1 / poolData.dec1);
-    const poolTVL = resPrice0 + resPrice1;
-    const userShare = (Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply)));
+    try {
+      let poolData = await aerodromeService.getPoolGaugeData(poolAddress, walletAddress);
+      if (poolData.balanceOf === 0n && sickleAddress) {
+        poolData = await aerodromeService.getPoolGaugeData(poolAddress, sickleAddress);
+        console.log(`[${uuid}] Fetching Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) from Sickle Contract (${sickleAddress})`);
+      }
 
-    const poolReturn: AerodromeSchema = {
-      timestamp: new Date(),
-      blockNumber: Number(await baseService.getBlockNumber()),
-      poolName: AerodromePoolGauge.find(x => x.address.toLowerCase() === poolAddress.toLowerCase())?.name || "Unknown Pool",
-      poolAddress: poolAddress,
-      walletAddress: walletAddress,
-      token0: poolData.token0,
-      token1: poolData.token1,
-      res0: Number(poolData.reserve0),
-      res1: Number(poolData.reserve1),
-      price0: price0,
-      price1:  price1,
-      rewardToken: poolData.rewardToken,
-      rewardEarned: Number(formatUnits(poolData.earned, BaseTokens.find(x => x.address == poolData.rewardToken)!.decimals)),
-      poolTVL: poolTVL,
-      positionShare: userShare,
-      positionPrice: userShare * poolTVL // = 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share >> vfat get res0 and res1 from pool balanceOf ERC20 calls
-    };
-    res.status(200).json(poolReturn);
-    await aerodromeCollection.insertOne(poolReturn);
-    console.log(`[${uuid}] Fetching Completed Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) `);
-  } catch (error) {
-    res.status(404).json({error: "Failed to fetch Pool Gauge Data", cause: error});
-  }  
+      const price0 = await chainlink.getTokenPrice(poolData.token0);
+      const price1 = await chainlink.getTokenPrice(poolData.token1);
+      const resPrice0 = price0 * Number(poolData.reserve0 / poolData.dec0);
+      const resPrice1 = price1 * Number(poolData.reserve1 / poolData.dec1);
+      const poolTVL = resPrice0 + resPrice1;
+      const userShare = (Number(formatEther(poolData.balanceOf)) / Number(formatEther(poolData.totalSupply)));
+
+      const poolReturn: AerodromeSchema = {
+        timestamp: new Date(),
+        blockNumber: Number(await baseService.getBlockNumber()),
+        poolName: AerodromePoolGauge.find(x => x.address.toLowerCase() === poolAddress.toLowerCase())?.name || "Unknown Pool",
+        poolAddress: poolAddress,
+        walletAddress: walletAddress,
+        token0: poolData.token0,
+        token1: poolData.token1,
+        res0: Number(poolData.reserve0),
+        res1: Number(poolData.reserve1),
+        price0: price0,
+        price1:  price1,
+        rewardToken: poolData.rewardToken,
+        rewardEarned: Number(formatUnits(poolData.earned, BaseTokens.find(x => x.address.toLowerCase() == poolData.rewardToken.toLowerCase())?.decimals ?? 18)),
+        poolTVL: poolTVL,
+        positionShare: userShare,
+        positionPrice: userShare * poolTVL // = 0.0001578236630507249 but vfat indicate 0.00015410146155596743 deposit share >> vfat get res0 and res1 from pool balanceOf ERC20 calls
+      };
+      res.status(200).json(poolReturn);
+      await aerodromeCollection.insertOne(poolReturn);
+      console.log(`[${uuid}] Fetching Completed Aerodrome Pool (${poolAddress}) for Wallet (${walletAddress}) `);
+    } catch (error) {
+      res.status(404).json({error: "Failed to fetch Pool Gauge Data", cause: error});
+    }
+  } else {
+    res.status(404).json({ error: "Invalid or missing pool / wallet address" });
+    return;
+  } 
 });
 
 app.get("/api/moonwell", async (req: Request, res: Response) => {
-  try {
-    if (isAddress(req.query.walletaddress as string)) {
-      const walletAddress: Address = getAddress(req.query.walletaddress as string);
-      console.log(`Processing address: ${walletAddress}`);
-
+  if (isAddress(req.query.walletaddress as string)) {
+    const walletAddress: Address = getAddress(req.query.walletaddress as string);
+    console.log(`Processing address: ${walletAddress}`);
+    try {    
       baseService.getTokensBalance(walletAddress).then(balance => {
         balance.tokens.filter(x => x.balance > 0).forEach(token => {
           console.log(`${token.symbol} Balance: ${token.balance}`);
@@ -153,12 +151,12 @@ app.get("/api/moonwell", async (req: Request, res: Response) => {
       console.debug("--------------------------------");
 
       res.status(200).send("Done !");
-    } else {
-      res.status(404).send("Invalid or missing wallet address");
+    } catch (error) {
+      console.error(`Failed to process address ${walletAddress}:`, error);
+      res.status(404).send("Failed to process request");
     }
-  } catch (error) {
-    console.error(`Failed to process address ${ethAddress}:`, error);
-    res.status(404).send("Failed to process request");
+  } else {
+    res.status(404).send("Invalid or missing wallet address");
   }
 });
 
