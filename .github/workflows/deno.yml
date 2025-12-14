@@ -18,9 +18,9 @@ jobs:
       uses: actions/checkout@main
 
     - name: Setup Deno
-      uses: denoland/setup-deno@v2.0.3
+      uses: denoland/setup-deno@v2
       with:
-        deno-version: 2.5.6
+        deno-version: 2.6.0
 
     - name: Install
       run: deno install

@@ -1,6 +1,6 @@
 # Build stage
 FROM denoland/deno:alpine-2.4.0
-EXPOSE 8080
+EXPOSE 8000
 WORKDIR /app
 USER deno
 COPY . .
